@@ -1,0 +1,481 @@
+---
+title: "Baseball - A Defensive Critique"
+author: "Paul A. Hodgetts"
+date: "2020-12-29T20:35:12-05:00"
+output: 
+  html_document:
+    fig_caption: yes
+draft: false
+showDate: true
+tags: ["baseball", "defense", "R", "correlation"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries and Packages
+
+```{r packages, echo=FALSE, message=FALSE}
+## uncomment lines for packages that need to be installed
+#install.packages("Lahman") ## install the Lahman package for baseball data
+#install.packages("tidyverse") ## install tidyverse package for data manipulation
+#install.packages("ggcorrplot") ## install ggcorrplot for data viz
+#install.packages("ggplot2") ## install ggplot2 for data viz
+#install.packages("ggfortify") ## install ggfortify package for autoplot function
+#install.packages("showtext") ## install showtext package
+```
+
+```{r lirbaries, echo=FALSE, message=FALSE, warning=FALSE}
+library(Lahman)                  ## load Lahman library for MLB player data
+library(tidyverse)               ## load tidyverse library for tidy data functions
+library(ggcorrplot)              ## load ggcorrplot library for correlatin heatmap
+library(ggplot2)                 ## load ggplot2 library for creating visualization
+library(ggfortify)               ## load ggfortify library for autoplot function
+library(showtext)                ## load showtext library for accessing Google fonts
+```
+
+## Fonts
+
+```{r import fonts, echo=FALSE, message=FALSE}
+## add in fonts from Google fonts using showtext package
+font_add_google(name = "Lato", family = "lato-sans-serif")
+showtext_auto()
+```
+
+## Data
+
+```{r data, echo=FALSE, message=FALSE}
+## load Teams data
+teams <- Teams
+
+## select necessary columns
+## yearID, W, L, R, RA, and HRA
+df <- teams %>% 
+  select(yearID, W, L, R, RA, HRA)
+
+## check column heads
+#head(df)
+```
+
+```{r missing values, echo=FALSE, message=FALSE}
+## function to identify missing values by column and row
+## takes two parameters .data, a dataset, and .var, a character string
+check_NA <- function(.data, .var){
+  ## returns an array index for missing values
+  assign(.var, which(is.na(.data), arr.ind = TRUE), envir = .GlobalEnv)
+  ## creates dataframe with given character string
+  assign(.var, as.data.frame(get(.var)), envir = .GlobalEnv)
+  ## removes duplicate values
+  assign(.var, unique(get(.var)), envir = .GlobalEnv)
+}
+
+## creates dataset of missing value row and column numbers
+check_NA(df, "df_NA")
+```
+
+```{r sort data, echo=FALSE}
+## create new dataset with year filtered for 1961 and greater
+df61 <- df %>% 
+  filter(yearID >= 1961)
+
+## check column heads
+#head(df61)
+```
+
+## Correlation
+
+```{r correlation, echo=FALSE}
+## select only those columns for correlation analysis
+## W, L, R, RA, and HRA
+## create new column of runs allowed minus home runs allowed
+## remove home runs allowed from dataset
+df_cor <- df61 %>% 
+  select(W, L, R, RA, HRA) %>% 
+  mutate(RA_MHRA = RA - HRA) %>% 
+  select(-HRA)
+
+## calculate correlations
+cor_rra <- round(cor(df_cor), 2)
+
+## check correlations
+knitr::kable(head(cor_rra), caption = "Correlation Matrix for Wins, Losses, Runs, Runs Allowed, and Runs Allowed minus Home Runs")
+```
+
+```{r heatmap, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Heatmap Correlation Matrix for Wins, Losses, Runs, Runs Allowed, and Runs Allowed Minus Home Runs"}
+## generate correlation heatmap using blue to white to red as colours
+ggcorrplot(cor_rra, colors = c("#1b93df", "#ffffff", "#E09900"))
+```
+
+## Linear Regression
+
+```{r lm wins runs scored, echo=FALSE}
+## generate model one of runs scored and wins
+wins_runs <- lm(formula = W ~ R, data = df_cor)
+## generate model two with the addition of the log of R
+wins_runs2 <- lm(formula = W ~ R + log(R), data = df_cor)
+## generate model three with the log of W
+wins_runs3 <- lm(formula = log(W) ~ R + log(R), data = df_cor)
+## produce summary of model one
+summary(wins_runs)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Scored"}
+## generate regression plot for runs and wins model
+ggplot(df_cor, aes(x = R, y = W))+
+  geom_point(colour = "#E09900", alpha = 0.75)+
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))+
+  labs(y = "Wins",
+       x = "Runs Scored")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Scored Model 1"}
+## generate diagnostic charts for model one of runs and wins
+autoplot(wins_runs, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+        
+```
+
+```{r summary model2, echo=FALSE, warning=FALSE}
+## return summary of model two for runs and wins
+summary(wins_runs2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Scored Model 2"}
+## generate diagnostic charts for model two of runs and wins
+autoplot(wins_runs2, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r summary model3, echo=FALSE, warning=FALSE}
+## return summary of model three for runs and wins
+summary(wins_runs3)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Scored Model 3"}
+## generate diagnostic charts for model three of runs and wins
+autoplot(wins_runs3, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r lm wins runs allowed, echo=FALSE}
+## create dataset removing outliers
+df_cor_noo <- df_cor %>% 
+  filter(RA >= 500 & W >= 60)
+
+## generate model one for wins and runs allowed
+wins_ra <- lm(formula = W ~ RA, data = df_cor)
+## generate model two with log of RA
+wins_ra2 <- lm(formula = W ~ RA + log(RA), data = df_cor)
+## generate model three with log of W
+wins_ra3 <- lm(formula = log(W) ~ RA + log(RA), data = df_cor)
+## generate model four with outliers removed
+wins_ra4 <- lm(formula = log(W) ~ RA + log(RA), data = df_cor_noo)
+## generate summary for model one
+summary(wins_ra)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed"}
+## generate regression plot for runs allowed and wins model
+ggplot(df_cor, aes(x = RA, y = W))+
+  geom_point(colour = "#E09900", alpha = 0.75)+
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))+
+  labs(y = "Wins",
+       x = "Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 1"}
+## generate diagnostic charts for model one of runs allowed and wins
+autoplot(wins_ra, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## generate summary for model two
+summary(wins_ra2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 2"}
+## generate diagnostic charts for model two of runs allowed and wins
+autoplot(wins_ra2, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+## generate summary for model three
+summary(wins_ra3)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 3"}
+## generate diagnostic charts for model three of runs allowed and wins
+autoplot(wins_ra3, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+## generate summary for model four
+summary(wins_ra4)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 4"}
+## generate diagnostic charts for model four of runs allowed and wins
+autoplot(wins_ra4, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r lm wins minus home runs, echo=FALSE}
+## generate model for wins and runs allowed minus home runs allowed
+wins_mhra <- lm(formula = W ~ RA_MHRA, data = df_cor)
+## generate model for wins and runs allowed minus home runs allowed with log of W and log of RA_MHRA
+wins_mhra2 <- lm(formula = log(W) ~ RA_MHRA + log(RA_MHRA), data = df_cor_noo)
+## generate summary for model one
+summary(wins_mhra)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Minus Home Runs Allowed"}
+## generate regression plot for runs allowed minus home runs allowed model
+ggplot(df_cor, aes(x = RA_MHRA, y = W))+
+  geom_point(colour = "#E09900", alpha = 0.75)+
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))+
+  labs(y = "Wins",
+       x = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Minus Home Runs Allowed Model 1"}
+## generate diagnostic plots for runs allowed minus home runs allowed and wins model one
+autoplot(wins_mhra, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## generate summary for model two
+summary(wins_mhra2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Minus Home Runs Allowed Model 2"}
+## generate diagnostic plots for runs allowed minus home runs allowed and wins model two
+autoplot(wins_mhra2, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r lm losses runs scored, echo=FALSE}
+## generate model one for losses and runs scored
+losses_runs <- lm(formula = L ~ R, data = df_cor)
+## generate model two for losses and runs scored with log L, log R, and no outliers
+losses_runs2 <- lm(formula = log(L) ~ R + log(R), data = df_cor_noo)
+## generate summary for model one
+summary(losses_runs)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Scored"}
+## generate regression plot for runs and losses model
+ggplot(df_cor, aes(x = R, y = L))+
+  geom_point(colour = "#E09900", alpha = 0.75)+
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))+
+  labs(y = "Losses",
+       x = "Runs Scored")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 4"}
+## generate diagnostic plots for losses and runs model one
+autoplot(losses_runs, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+## generate summary for model two
+summary(losses_runs2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 5"}
+## generate diagnostic plots for model two
+autoplot(losses_runs2, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r lm losses runs allowed, echo=FALSE}
+## generate model for losses and runs allowed
+losses_ra <- lm(formula = L ~ RA, data = df_cor)
+## generate model for losses and runs allowed + log runs allowed
+losses_ra2 <- lm(formula = log(L) ~ RA + log(RA), data = df_cor)
+## generate summary for model one
+summary(losses_ra)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed "}
+## generate regression plot for losses and runs allowed model
+ggplot(df_cor, aes(x = RA, y = L))+
+  geom_point(colour = "#E09900", alpha = 0.75)+
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))+
+  labs(y = "Losses",
+       x = "Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Model 1"}
+## generate diagnostic plots for model one
+autoplot(losses_ra, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+## generate summary for model two
+summary(losses_ra2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Model 2"}
+## generate diagnostic plots for model two
+autoplot(losses_ra2, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r lm losses runs allowedhr, echo=FALSE}
+## generate model one for losses and runs allowed minus home runs allowed
+losses_mhra <- lm(formula = L ~ RA_MHRA, data = df_cor)
+## generate model two using log of L and log of RA_MHRA
+losses_mhra2 <- lm(formula = log(L) ~ RA_MHRA + log(RA_MHRA), data = df_cor)
+## generate summary of model one
+summary(losses_mhra)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed Minus Home Runs Allowed"}
+## generate regression plot for minus home runs allowed model
+ggplot(df_cor, aes(x = RA_MHRA, y = L))+
+  geom_point(colour = "#E09900", alpha = 0.75)+
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))+
+  labs(y = "Losses",
+       x = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Minus Home Runs Allowed Model 1"}
+## generate diagnostic plots for model one
+autoplot(losses_mhra, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate summary for model two
+summary(losses_mhra2)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Minus Home Runs Allowed Model 2"}
+## generate diagnostic plots for model two
+autoplot(losses_mhra2, colour = "#E09900", alpha = 0.75)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
