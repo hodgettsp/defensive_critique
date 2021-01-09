@@ -11,6 +11,28 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Introduction to the Introduction
+
+So this definitely got out of hand. Started out by thinking I'd do a simple, little correlation analysis, which then ended up as a dive into transformed variables for linear regression, which also entailed some outlier analysis, which then turned into an exploration into `ggplot` and diagnostic plots, and then also using `kable()` to produce tables in `RMarkdown`. All code is available on my <a href="https://github.com/hodgettsp/defensive_critique">GitHub</a>.
+
+## Introduction
+
+I was recently reading a piece on <a href="https://www.baseballprospectus.com/news/article/58243/measuring-defensive-accuracy-in-baseball/">Baseball Prospectus</a> discussing defensive metrics in baseball that left me with a few questions. While I do think it is a great breakdown of the current defensive metrics, something I've been curious about since first looking at the defensive rankings on the back of <a href="https://www.strat-o-matic.com/">Strat-O-Matic</a> cards, I was left a bit bothered by the line, "defensive quality is nowhere near as important as hitting or pitching, but it is important nonetheless." My issue with this is that it strikes me as biased. Not for explicitly stating that offense and pitching are more important than defense, but because offensive and pitching metrics are more readily available and robust than defensive metrics. It may be that offense and pitching appear more contributory because they are more measures and they are more easily measured. It reminds me of how when I studied behavioural psychology we were effectively told that internal mechanisms like thoughts were not considered because they could not be measured accurately through the (at-the-time) current standards of assessment. Furthermore, as important for what? Wins? Losses? Runs? Outs?
+
+Going with these questions, I decided to do a basic correlation analysis between wins, losses, runs scored, runs allowed, and runs allowed minus home runs allowed. This was to examine whether the number of runs allowed or runs scored, as stand-ins for defensive performance and offensive performance respectively, had a stronger correlation with wins or losses. These are very basic stand-ins, and I wouldn't recommend using them beyond a cursory analysis of a team's performance.
+
+In addition to the correlation analysis I also did a linear regression analysis to see which of runs scored or runs allowed would better account for the variance in the opposing dependent variable (i.e., runs scored and losses and runs allowed and wins). Results for the correlation analysis and linear regression models as well as limitations and future directions are discussed below.
+
+*Side note: I want to re-iterate that these analyses are very basic and do not go into as much depth as would be needed to properly explore the topics discussed in this post. However, they do provide a basis from which, at least I think, to begin understanding the contributions of offense and defense in baseball, as well as how our understanding or perception of a thing is influenced by the way in which we measure or assess it.*
+
+## Data & Methods
+
+All data for this analysis comes from the <a href="http://www.seanlahman.com/baseball-archive/statistics/">`Lahman`</a> <a href="https://github.com/cdalzell/Lahman">R package</a> <a href="https://cran.r-project.org/web/packages/Lahman/Lahman.pdf">`Teams` dataset</a>. For this analysis, I only used games from 1961 onward as that is when the 162 game season was introduced. This left 1566 observations. I also only used the columns yearID (year of season), W (number of wins), L (number of losses), R (number of runs scored), RA (number of runs allowed), and HRA (number of home runs allowed). The reason for including home runs allowed was to subtract that from runs allowed as a makeshift calculation for removing pitcher influence from runs allowed. However, given that not all home runs are solo home runs this is not a perfect substitute.
+
+### Missing Values
+
+The data was examined for the presence of missing values and none were found *(huzzah!)*.
+
 ```{r packages, echo=FALSE, message=FALSE}
 ## uncomment lines for packages that need to be installed
 #install.packages("Lahman")       ## install the Lahman package for baseball data
@@ -83,6 +105,14 @@ df61 <- df %>%
 #head(df61)
 ```
 
+## Correlation Analysis
+
+Looking at Table 1 for correlation results, it can be seen that runs scored had a 0.59 correlation with wins, while runs allowed had a -0.31 correlation with wins (also see Figure 1 for a visualization). Meaning that runs scored and wins were more closely associated with each other than runs allowed and wins. Additionally, runs scored had a -0.27 correlation with losses, while runs allowed had a correlation of 0.62 (see Table 1 and Figure 1). Meaning that runs allowed and losses were more closely associated with each other than runs scored and losses. Regarding the removal of home runs from runs allowed, the correlation results increased with runs allowed minus home runs allowed (RA_MHRA) returning a correlation of 0.66 with losses and -0.37 with wins (see Table 1 and Figure 1).
+
+<br>
+
+<br>
+
 ```{r correlation, echo=FALSE}
 ## select only those columns for correlation analysis
 ## W, L, R, RA, and HRA
@@ -101,6 +131,10 @@ cor_rra <- round(cor(df_cor), 2)
 knitr::kable(head(cor_rra), caption = "Correlation Matrix for Wins, Losses, Runs, Runs Allowed, and Runs Allowed Minus Home Runs Allowed")
 ```
 
+<br>
+
+<br>
+
 ```{r heatmap, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Heatmap Correlation Matrix for Wins, Losses, Runs, Runs Allowed, and Runs Allowed Minus Home Runs"}
 ## generate correlation heatmap plot using ggcorrplot
 ## use cor_rra as data source
@@ -109,16 +143,44 @@ ggcorrplot(cor_rra, colors = c("#1b93df", "#ffffff", "#f6aa1c"))+
   ## set plot theme to minimal
   theme_minimal()+
   ## set plot font to Lato
-  theme(text = element_text(family = "lato-sans-serif"))+
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14))+
   ## set Y and X axes title to Variable
   labs(y = "Variable",
        x = "Variable")
 ```
 
+<br>
+
+<br>
+
+## Regression Analysis
+
+In addition to the correlation analysis, a linear regression analysis was also performed for each of wins and losses with runs scored, runs allowed, and runs allowed minus home runs allowed. The purpose being to see which of runs scored or runs allowed contributed more to the variance in the associated correlation variable (i.e., runs scored to wins and runs allowed to losses), but also to see which of runs scored or runs allowed contributed more to the variance in the opposing variable (i.e., runs scored to losses and runs allowed to wins).
+
+<br>
+
+### Data Summary
+
+To gain a better understanding of the data and possible influences on the models, a summary of the data with the min/max values, quartiles, and median and mean values was generated. Results can be seen in Table 2. Additionally, a histogram was generated for each variable to better understand the distribution (see Figure 2).
+
+Looking at Table 2 and Figure 2, the variables appear to have a fairly Gaussian distribution. Although, some values in the extremes may cause issues for model performance.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate summary table using head() and kable() function from the knitr package
 knitr::kable(summary(df_cor), caption = "Data Summary for Wins, Losses, Runs Scored, Runs Allowed, and Runs Allowed Minus Home Runs Allowed")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate and assign histogram plot using wins on x axis
@@ -129,10 +191,10 @@ p1 <- ggplot(df_cor, aes(x = W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set the axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set the zxis title to size 18
-        axis.title = element_text(size = 18),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -150,10 +212,10 @@ p2 <- ggplot(df_cor, aes(x = L))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set the axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set the zxis title to size 18
-        axis.title = element_text(size = 18),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -171,10 +233,10 @@ p3 <- ggplot(df_cor, aes(x = R))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set the axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set the zxis title to size 18
-        axis.title = element_text(size = 18),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -192,10 +254,10 @@ p4 <- ggplot(df_cor, aes(x = RA))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set the axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set the zxis title to size 18
-        axis.title = element_text(size = 18),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -213,10 +275,10 @@ p5 <- ggplot(df_cor, aes(x = RA_MHRA))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set the axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set the zxis title to size 18
-        axis.title = element_text(size = 18),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -231,6 +293,16 @@ p5 <- ggplot(df_cor, aes(x = RA_MHRA))+
 ## generate grid of histogram plots
 grid.arrange(p1, p2, p3, p4, p5)
 ```
+
+<br>
+
+<br>
+
+To better examine the distribution of the data and possible outliers, boxplots and violin plots for each variable as measured by wins (Figure 3 and Figure 4) and losses (Figure 5 and Figure 6) were also generated. Outliers are evident in the boxplots in both Figure 3 and Figure 5 for each variable. Additionally, the distribution of data can be seen to change in the violin plots (Figure 4 and Figure 6) through wins and losses groups, with lower values showing a clustering of values to the extremes. Moreover, the change with wins and losses with each variable is once again evident. With wins increasing with runs scored and decreasing with runs allowed, and losses decreasing with runs scored and increasing with runs allowed (Figure 4 and Figure 6).
+
+<br>
+
+<br>
 
 ```{r create wins losses bins, echo=FALSE, message=FALSE, warning=FALSE}
 ## create new columns for wins and losses bins for use with box plots
@@ -250,10 +322,10 @@ b1 <- ggplot(df_cor, aes(y = R, x = bins_W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## change label text size to 16
-        axis.text = element_text(size = 16),
-        ## change axis title size to 18
-        axis.title = element_text(size = 18),
+        ## change label text size to 12
+        axis.text = element_text(size = 12),
+        ## change axis title size to 14
+        axis.title = element_text(size = 14),
         ## remove minor X grid
         panel.grid.minor.x = element_blank(),
         ## remove major X grid
@@ -274,10 +346,10 @@ b2 <- ggplot(df_cor, aes(y = RA, x = bins_W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## change label text size to 16
-        axis.text = element_text(size = 16),
-        ## change axis title size to 18
-        axis.title = element_text(size = 18),
+        ## change label text size to 12
+        axis.text = element_text(size = 12),
+        ## change axis title size to 14
+        axis.title = element_text(size = 14),
         ## remove minor X grid
         panel.grid.minor.x = element_blank(),
         ## remove major X grid
@@ -298,10 +370,10 @@ b3 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## change label text size to 16
-        axis.text = element_text(size = 16),
-        ## change axis title size to 18
-        axis.title = element_text(size = 18),
+        ## change label text size to 12
+        axis.text = element_text(size = 12),
+        ## change axis title size to 14
+        axis.title = element_text(size = 14),
         ## remove minor X grid
         panel.grid.minor.x = element_blank(),
         ## remove major X grid
@@ -320,6 +392,10 @@ b3 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_W))+
 grid.arrange(b1, b2, b3)
 ```
 
+<br>
+
+<br>
+
 ```{r wins violin plots, echo=FALSE, message=FALSE, warning=FALSE}
 ## generate violin plot using df_cor as data, runs scored, and wins
 v1 <- ggplot(df_cor, aes(y = R, x = bins_W))+
@@ -329,10 +405,10 @@ v1 <- ggplot(df_cor, aes(y = R, x = bins_W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set axis title to size 18
-        axis.title = element_text(size = 18),
+        ## set axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set axis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor X grid
         panel.grid.minor.x = element_blank(),
         ## remove major X grid and set major Y grid to light blue
@@ -352,10 +428,10 @@ v2 <- ggplot(df_cor, aes(y = RA, x = bins_W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set axis title to size 18
-        axis.title = element_text(size = 18),
+        ## set axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set axis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor X grid
         panel.grid.minor.x = element_blank(),
         ## remove major X grid and set major Y grid to light blue
@@ -375,10 +451,10 @@ v3 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set axis title to size 18
-        axis.title = element_text(size = 18),
+        ## set axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set axis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor X grid
         panel.grid.minor.x = element_blank(),
         ## remove major X grid and set major Y grid to light blue
@@ -396,6 +472,10 @@ v3 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_W))+
 grid.arrange(v1, v2, v3)
 ```
 
+<br>
+
+<br>
+
 ```{r losses boxplots, echo=FALSE, message=FALSE, warning=FALSE}
 ## generate boxplot using df_cor for data, runs for Y and binned losses for X
 b4 <- ggplot(df_cor, aes(y = R, x = bins_L))+
@@ -405,10 +485,10 @@ b4 <- ggplot(df_cor, aes(y = R, x = bins_L))+
   theme_minimal()+
   ## set plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set text size to 16
-        axis.text = element_text(size = 16),
-        ## set title size to 18
-        axis.title = element_text(size = 18),
+        ## set text size to 12
+        axis.text = element_text(size = 12),
+        ## set title size to 14
+        axis.title = element_text(size = 14),
         ## remove minor and major x grid lines and set major y grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -426,10 +506,10 @@ b5 <- ggplot(df_cor, aes(y = RA, x = bins_L))+
   theme_minimal()+
   ## set plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set text size to 16
-        axis.text = element_text(size = 16),
-        ## set title size to 18
-        axis.title = element_text(size = 18),
+        ## set text size to 12
+        axis.text = element_text(size = 12),
+        ## set title size to 14
+        axis.title = element_text(size = 14),
         ## remove minor and major x grid lines and set major y grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -447,10 +527,10 @@ b6 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_L))+
   theme_minimal()+
   ## set plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set text size to 16
-        axis.text = element_text(size = 16),
-        ## set title size to 18
-        axis.title = element_text(size = 18),
+        ## set text size to 12
+        axis.text = element_text(size = 12),
+        ## set title size to 14
+        axis.title = element_text(size = 14),
         ## remove minor and major x grid lines and set major y grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -466,6 +546,10 @@ b6 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_L))+
 grid.arrange(b4, b5, b6)
 ```
 
+<br>
+
+<br>
+
 ```{r losses violin plots, echo=FALSE, message=FALSE, warning=FALSE}
 ## generate violin plot using df_cor for data, runs for y, and binned losses for x
 v4 <- ggplot(df_cor, aes(y = R, x = bins_L))+
@@ -475,10 +559,10 @@ v4 <- ggplot(df_cor, aes(y = R, x = bins_L))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set axis title to size 18
-        axis.title = element_text(size = 18),
+        ## set axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set axis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor and major x grid lines and set major y grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -496,10 +580,10 @@ v5 <- ggplot(df_cor, aes(y = RA, x = bins_L))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set axis title to size 18
-        axis.title = element_text(size = 18),
+        ## set axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set axis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor and major x grid lines and set major y grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -517,10 +601,10 @@ v6 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_L))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to size 16
-        axis.text = element_text(size = 16),
-        ## set axis title to size 18
-        axis.title = element_text(size = 18),
+        ## set axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set axis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor and major x grid lines and set major y grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -536,6 +620,20 @@ v6 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_L))+
 grid.arrange(v4, v5, v6)
 ```
 
+<br>
+
+<br>
+
+### Wins Models
+
+#### Wins ~ Runs Scored
+
+The first regression model used wins as the dependent or outcome variable and runs scored as the independent or predictor variable. As wins is a numerical value, linear regression was used. This model returned a coefficient of determination (hereby referred to as R^2^) of 0.35 (see Table 3), meaning that runs scored accounted for ~35% of the variance in wins. Additionally, it also returned a residual standard error of 10.03 (see Table 3), meaning that the observed wins deviate from the predicted wins by 10.03 units on average. Figure 7 shows the regression plot for this model with the standard error. It can be seen from that plot that the relationship between wins and runs scored is linear.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE}
 ## generate linear regression model for wins and runs
 ## set formula for wins as dependent and runs scored as independent variables, and data as df_cor
@@ -543,6 +641,10 @@ wins_runs <- lm(formula = W ~ R, data = df_cor)
 ## generate summary of model
 knitr::kable(round(glance(wins_runs), 2), caption = "Regression Results for Wins and Runs Scored, Model 1")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Scored Model 1"}
 ## generate regression plot for runs and wins
@@ -560,6 +662,10 @@ ggplot(df_cor, aes(x = R, y = W))+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
         ## remove minor grid lines and set major grid lines to light blue
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
@@ -569,6 +675,26 @@ ggplot(df_cor, aes(x = R, y = W))+
        x = "Runs Scored")
 ```
 
+<br>
+
+<br>
+
+In further assessing the efficacy of the linear regression model, diagnostic plots were generated to ensure the model met linear regression assumptions. These assumptions being the linearity of the data (the relationship between the dependent and independent variables is assumed to be linear), normality of the residuals (the residual errors are assumed to be distributed normally), the homogeneity of the residuals of variance (the residuals are assumed to have a constant variance), and the independence of residuals error terms (little to no autocorrelation in the residuals). The plots in Figure 8 provided a means of assessing these assumptions.
+
+To assess the assumption of linearity of the data the Residuals vs. Fitted plot in Figure 8 was used. A model that meets this assumption would show a generally flat line. This model met this assumption well, although there appeared to be a slight pattern in the data as the diagnostic line did show a slight curve.
+
+The assumption of normality can be assessed using the Normal Q-Q plot. A model that meets this assumption will have data that falls along the diagnostic line. In the case of this model, this assumption was met.
+
+The assumption of homogeneity can be assessed using the Scale-Location plot, which in the case of this model held fairly well as evidenced by the quite horizontal line.
+
+Additionally, as can be viewed by both the Residuals vs. Fitted plot and the Scale-Location plot, the residuals do show some clustering but overall are fairly well distributed.
+
+Lastly, the Residuals vs. Leverage plot was used to identify cases when extreme values might influence the regression results (outliers). Despite the appearance of outliers as evidenced in Figure 3, no value appeared to exceed three standard deviations, as seen in the Residuals vs. Leverage plot in Figure 8. Suggesting that outliers did not influence the model.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Scored Model 1"}
 ## generate diagnostic plots for linear regression model wins_runs
 ## set colour to yellow, diagnostic line to blue, and alpha to .25
@@ -577,12 +703,26 @@ autoplot(wins_runs, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
+
+However, despite the seeming assurance of no influential values, I did also generate another plot to further assess any influential values, given the appearance of outliers in Figure 3. Figure 9 further shows the distribution of residuals as according to Cook's distance, which reinforces that outliers were not influential for this model.
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Cook's Distance for Wins Runs Model 1"}
 ## augment model
@@ -596,6 +736,10 @@ ggplot(wins_runs_aug, aes(seq_along(.cooksd), .cooksd))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -606,6 +750,16 @@ ggplot(wins_runs_aug, aes(seq_along(.cooksd), .cooksd))+
        y = "Cook's Distance")
 ```
 
+<br>
+
+<br>
+
+Although these results suggested that the model performs well, the pattern in the Residuals vs. Fitted plot did present an opportunity to tweak the model for a better performance. To account for this pattern the log of the independent variable (in this case runs) was used. Doing this returned the diagnostic plots seen in Figure 10, which show that the slight curve in Residuals vs. Fitted was corrected, but this also caused the data to be shifted leading to less of a distribution in the residuals (see Figure 10 and Figure 11). Additionally, this marginally improved the model performance by increasing the R^2^ to 0.36 and producing a residual standard error of 9.97 (see Table 4). However, this improvement may be due to the shift in the distribution of the data as opposed to any improvement in the model. As such, the original model without the use of a log transformed predictor is probably the better of the two models to use.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, warning=FALSE}
 ## generate linear regression model for wins and runs
 ## set formula to wins as dependent and use runs plus the log of runs as dependent
@@ -614,17 +768,29 @@ wins_runs2 <- lm(formula = W ~ log(R), data = df_cor)
 knitr::kable(round(glance(wins_runs2), 2), caption = "Regression Results for Wins and Runs Scored Model 2")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Scored Model 2"}
 ## generate diagnsotic plot for model 2
 ## uses same settings as previous diagnostic plot
 autoplot(wins_runs2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Scored Model 2"}
 ## generate regression plot for runs and wins
@@ -641,6 +807,10 @@ ggplot(df_cor, aes(x = log(R), y = W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -651,6 +821,18 @@ ggplot(df_cor, aes(x = log(R), y = W))+
        x = "log(Runs Scored)")
 ```
 
+<br>
+
+<br>
+
+#### Wins ~ Runs Allowed Model
+
+As the purpose of this was to also explore wins and runs allowed, a model was also generated using runs allowed as a predictor of wins. The initial model returned an R^2^ value of 0.1 (meaning that runs allowed accounts for ~10% of variance in wins) with a residual standard error of 11.83 (see Table 5). Looking at Figure 12, the relationship between wins and runs allowed appears to be linear; however, looking at the diagnostic plots in Figure 13, it can be seen that the model does not quite meet every linear regression assumption. Moreover, looking at Figure 14 it looks as if there are some influential values that may be affecting the model.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate model for wins and runs allowed
 ## set wins as dependent and runs allowed as independent
@@ -658,6 +840,10 @@ wins_ra <- lm(formula = W ~ RA, data = df_cor)
 ## generate model summary
 knitr::kable(round(glance(wins_ra), 2), caption = "Regression Results for Wins and Runs Allowed Model 1")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Model 1"}
 ## generate regression plot for wins and runs allowed
@@ -673,6 +859,10 @@ ggplot(df_cor, aes(x = RA, y = W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -683,17 +873,29 @@ ggplot(df_cor, aes(x = RA, y = W))+
        x = "Runs Allowed")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 1"}
 ## generate diagnostic plot for wins and runs allowed model 1
 ## uses same diagnostic plot settings as previously used
 autoplot(wins_ra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Cook's Distance for Wins and Runs Allowed Model 1"}
 ## augment model
@@ -707,6 +909,10 @@ ggplot(wins_ra_aug, aes(seq_along(.cooksd), .cooksd))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -716,6 +922,16 @@ ggplot(wins_ra_aug, aes(seq_along(.cooksd), .cooksd))+
   labs(x = "Observation Number",
        y = "Cook's Distance")
 ```
+
+<br>
+
+<br>
+
+Because of the influential values, I decided to cap the outliers for runs allowed such that those observations outside the lower limit were capped with the 5th percentile value, and those that fall outside the upper limit were capped with the 95th percentile value. A summary table of the dataset with capped outliers is displayed in Table 6, while a comparison of the original values is displayed in Table 7. With capped values, runs allowed now has a minimum of 453 runs as compared to 331 runs and a max of 958 runs as compared to 1103 runs; however, the median remained the same at 702 runs while the mean decreased by 1 from 706 runs to 705 runs. Additionally, it can be seen in Figure 15 that the distribution of the capped runs allowed is still quite Gaussian as compared to the original distribution.
+
+<br>
+
+<br>
 
 ```{r outliers, echo=FALSE, message=FALSE, warning=FALSE}
 ## set function with one variable .var
@@ -749,9 +965,15 @@ df_cor_noo$RA <- outlier_norm(df_cor_noo$RA)
 knitr::kable(summary(df_cor_noo), caption = "Data Summary for Capped Runs Allowed Values")
 ```
 
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 knitr::kable(summary(df_cor), caption = "Data Summary for Unadjusted Runs Allowed Values")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate histogram for runs allowed
@@ -762,10 +984,10 @@ d1 <- ggplot(df_cor_noo, aes(x = RA))+
   theme_minimal()+
   ## set the plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to 16
-        axis.text = element_text(size = 16),
-        ## set axis title to 18
-        axis.title = element_text(size = 18),
+        ## set axis text to 12
+        axis.text = element_text(size = 12),
+        ## set axis title to 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -783,10 +1005,10 @@ d2 <- ggplot(df_cor, aes(x = RA))+
   theme_minimal()+
   ## set the plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to 16
-        axis.text = element_text(size = 16),
-        ## set axis title to 18
-        axis.title = element_text(size = 18),
+        ## set axis text to 12
+        axis.text = element_text(size = 12),
+        ## set axis title to 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -801,6 +1023,16 @@ d2 <- ggplot(df_cor, aes(x = RA))+
 grid.arrange(d1, d2)
 ```
 
+<br>
+
+<br>
+
+I also generated a model using the capped dataset to see if this improved the model results at all. This model returned an R^2^ of 0.12, a slight improvement over the original R^2^ of 0.1, and a residual standard error of 11.65, which is fairly close to the original value of 11.83 (see Table 8). Additionally, as seen in Figure 16, the model meets the linear regression assumptions much better than it had before. Additionally, there appears to be a good distribution of the residuals. However, looking at Figure 17, there still appears to be some issue with outliers and in Figure 18 there is an obvious pattern created by the capped values. Effectively, runs allowed is not enough by itself to account for wins.
+
+<br>
+
+<br>
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 ## generate wins and runs allowed model 2 with runs allowed plus log runs allowed
 wins_ra2 <- lm(formula = W ~ RA, data = df_cor_noo)
@@ -808,16 +1040,28 @@ wins_ra2 <- lm(formula = W ~ RA, data = df_cor_noo)
 knitr::kable(round(glance(wins_ra2), 2), caption = "Regression Results for Wins and Runs Allowed Model 2")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 2"}
 ## generate diagnostic plot using previous settings
 autoplot(wins_ra2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Model 2"}
 ## augment model
@@ -831,6 +1075,10 @@ ggplot(wins_ra2_aug, aes(seq_along(.cooksd), .cooksd))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -840,6 +1088,10 @@ ggplot(wins_ra2_aug, aes(seq_along(.cooksd), .cooksd))+
   labs(x = "Observation Number",
        y = "Cook's Distance")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Model 2"}
 ## generate regression plot for wins and runs allowed
@@ -855,6 +1107,10 @@ ggplot(df_cor_noo, aes(x = RA, y = W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -865,12 +1121,30 @@ ggplot(df_cor_noo, aes(x = RA, y = W))+
        x = "Runs Allowed")
 ```
 
+<br>
+
+<br>
+
+#### Wins ~ Runs Allowed Minus Home Runs Allowed Model
+
+Lastly, because pitching is so involved with runs allowed I removed home runs allowed to somewhat (although weakly) accommodate for this. An initial model returned an R^2^ of 0.13 with a residual standard error of 11.58 (see Table 9). Meaning that runs allowed minus home runs allowed accounts for ~13% of the variance in wins. An improvement over the runs allowed model.
+
+Looking at Figure 19, there does appear to be a fairly linear relationship between runs allowed minus home runs allowed and wins. However, looking at the diagnostic plots in Figure 20, there appears to be the same issues with this model as there were with the runs allowed model. Which makes sense. Looking at Figure 21, this again appears to be an issue with influential values.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate wins and runs allowed minus home runs allowed model
 wins_mhra <- lm(formula = W ~ RA_MHRA, data = df_cor)
 ## generate model summary
 knitr::kable(round(glance(wins_mhra), 2), caption = "Regression Results for Wins and Runs Allowed Minus Home Runs Allowed Model 1")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Minus Home Runs Allowed Model 1"}
 ## generate regression plot for wins and runs allowed minus home runs allowed
@@ -886,6 +1160,10 @@ ggplot(df_cor, aes(x = RA_MHRA, y = W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines
         ## set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
@@ -897,16 +1175,28 @@ ggplot(df_cor, aes(x = RA_MHRA, y = W))+
        x = "Runs Allowed Minus Home Runs Allowed")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Minus Home Runs Allowed Model 1"}
 ## generate model diagnostic plots using previous settings
 autoplot(wins_mhra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Minus Home Runs Allowed Model 1"}
 ## augment model
@@ -920,6 +1210,10 @@ ggplot(wins_mhra_aug, aes(seq_along(.cooksd), .cooksd))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -930,6 +1224,16 @@ ggplot(wins_mhra_aug, aes(seq_along(.cooksd), .cooksd))+
        y = "Cook's Distance")
 ```
 
+<br>
+
+<br>
+
+As such, the values for runs allowed minus home runs allowed were capped using the same methods as with runs allowed. Table 10 shows the capped values for runs allowed minus home runs allowed, while Table 11 shows the original values. Looking at these tables it can be seen that the minimum value for runs allowed minus home runs allowed increased from 279 runs to 354 runs, while the max value decreased from 862 runs to 761 runs. Moreover, the median and mean stayed the same at 557 runs, while the distribution for runs allowed minus home runs allowed stayed Gaussian (Figure 22).
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 df_cor_noo$RA_MHRA <- outlier_norm(df_cor_noo$RA_MHRA)
 ```
@@ -938,9 +1242,15 @@ df_cor_noo$RA_MHRA <- outlier_norm(df_cor_noo$RA_MHRA)
 knitr::kable(summary(df_cor_noo), caption = "Data Summary for Capped Runs Allowed Minus Home Runs Allowed Values")
 ```
 
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 knitr::kable(summary(df_cor), caption = "Data Summary for Unadjusted Runs Allowed Minus Home Runs Allowed Values")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate histogram for runs allowed
@@ -951,10 +1261,10 @@ d3 <- ggplot(df_cor_noo, aes(x = RA_MHRA))+
   theme_minimal()+
   ## set the plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to 16
-        axis.text = element_text(size = 16),
-        ## set axis title to 18
-        axis.title = element_text(size = 18),
+        ## set axis text to 12
+        axis.text = element_text(size = 12),
+        ## set axis title to 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -972,10 +1282,10 @@ d4 <- ggplot(df_cor, aes(x = RA_MHRA))+
   theme_minimal()+
   ## set the plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to 16
-        axis.text = element_text(size = 16),
-        ## set axis title to 18
-        axis.title = element_text(size = 18),
+        ## set axis text to 12
+        axis.text = element_text(size = 12),
+        ## set axis title to 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -990,6 +1300,16 @@ d4 <- ggplot(df_cor, aes(x = RA_MHRA))+
 grid.arrange(d3, d4)
 ```
 
+<br>
+
+<br>
+
+The model using the capped values, returned an R^2^ value of 0.15, an improvement over the original model, and a residual standard error of 11.46, which was still fairly similar to the original of 11.58 (see Table 12). Moreover, looking at the diagnostic plots in Figure 23, improvements can be seen in terms of the assumptions, but there still appears to be some issues that also appeared in the runs allowed model (see Figure 24 and Figure 25). Which again makes sense given the construction of this variable.
+
+<br>
+
+<br>
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 ## generate wins and runs allowed minus home runs allowed model 2
 ## using runs allowed minus home runs allowed plus log runs allowed minus home runs allowed
@@ -998,17 +1318,29 @@ wins_mhra2 <- lm(formula = W ~ RA_MHRA, data = df_cor_noo)
 knitr::kable(round(glance(wins_mhra2), 2), caption = "Regression Results for Wins and Runs Allowed Minus Home Runs Allowed Model 2")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Minus Home Runs Allowed Model 2"}
 ## generate diagnostic plot for wins runs allowed minus home runs allowed model 2
 ## uses previous settings for diagnostic plots
 autoplot(wins_mhra2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Model 2"}
 ## augment model
@@ -1022,6 +1354,10 @@ ggplot(wins_mhra2_aug, aes(seq_along(.cooksd), .cooksd))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1031,6 +1367,10 @@ ggplot(wins_mhra2_aug, aes(seq_along(.cooksd), .cooksd))+
   labs(x = "Observation Number",
        y = "Cook's Distance")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Minus Home Runs Allowed Model 2"}
 ## generate regression plot for wins and runs allowed minus home runs allowed
@@ -1046,6 +1386,10 @@ ggplot(df_cor_noo, aes(x = RA_MHRA, y = W))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines
         ## set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
@@ -1057,12 +1401,34 @@ ggplot(df_cor_noo, aes(x = RA_MHRA, y = W))+
        x = "Runs Allowed Minus Home Runs Allowed")
 ```
 
+<br>
+
+<br>
+
+### Losses Models
+
+#### Losses ~ Runs Scored Model
+
+Moving onto losses. Using runs scored as the independent variable initially produces an R^2^ value of 0.07, meaning that runs scored account for ~7% of the variance in losses, with a residual standard error of 11.94 (see Table 13). However, looking at the diagnostic plots in Figure 27, it can be seen that similar issues as found in the wins and runs allowed models appear in this model as well. Indeed, looking at Figure 26, the distribution of points in the relationship between losses and runs scored is very similar to that seen in Figure 12 with wins and runs allowed. Furthermore, looking at Figure 27 and Figure 28, the issue once again appears to be one of influential values.
+
+As such, the same capping process used for both runs allowed and runs allowed minus home runs allowed was used. This adjusted the minimum value of runs from 329 runs to 458 runs, and the maximum value of runs from 1009 runs to 952 runs (see Table 14 and Table 15). As well, in the adjustment the median remained the same at 706 runs while the mean value of runs increased from 705 to 706 (Table 14 and Table 15). Additionally, the distribution of the values remained Gaussian after having capped the outlier values for runs scored (Figure 29).
+
+Running the losses and runs scored model again, but now with the capped values, returned an R^2^ of ~0.1 (rounded up from 0.0951969) with a residual standard error of 11.79 (see Table 16). Which puts the model around the same as the original wins and runs allowed model in terms of accounting for variance. Looking at Figure 30, the diagnostic plots for this model show that the assumptions are more closely met than the original losses and runs scored model. Additionally, the results closely resemble those seen with the wins and runs allowed model. Moreover, the same pattern that appeared in the regression plot for wins and runs allowed similarly appears in the regression plot for losses, runs scored after capping the values (see Figure 31). While the results of capping influential outliers does show an improvement in the model regarding inference, it should be noted that the results of the original model suggest that it would be better served by incorporating more variables rather than attempting to continue with runs scored alone.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate losses and runs model 1
 losses_runs <- lm(formula = L ~ R, data = df_cor)
 ## generate summary for model 1
 knitr::kable(round(glance(losses_runs), 2), caption = "Regression Results for Losses and Runs Scored Model 1")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Scored Model 1"}
 ## generate regression plot for losses and runs model
@@ -1078,6 +1444,10 @@ ggplot(df_cor, aes(x = R, y = L))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1088,17 +1458,29 @@ ggplot(df_cor, aes(x = R, y = L))+
        x = "Runs Scored")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 4"}
 ## generate diagnostic plot for losses and runs model 1
 ## uses previous settings for diagnostic plots
 autoplot(losses_runs, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Model 1"}
 ## augment model
@@ -1112,6 +1494,10 @@ ggplot(losses_runs_aug, aes(seq_along(.cooksd), .cooksd))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1122,6 +1508,10 @@ ggplot(losses_runs_aug, aes(seq_along(.cooksd), .cooksd))+
        y = "Cook's Distance")
 ```
 
+<br>
+
+<br>
+
 ```{r runs outliers, echo=FALSE, message=FALSE, warning=FALSE}
 df_cor_noo$R <- outlier_norm(df_cor_noo$R)
 ```
@@ -1130,9 +1520,15 @@ df_cor_noo$R <- outlier_norm(df_cor_noo$R)
 knitr::kable(summary(df_cor_noo), caption = "Data Summary for Capped Runs Scored Values")
 ```
 
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 knitr::kable(summary(df_cor), caption = "Data Summary for Unadjusted Runs Scored Values")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate histogram for runs
@@ -1143,10 +1539,10 @@ d5 <- ggplot(df_cor_noo, aes(x = R))+
   theme_minimal()+
   ## set the plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to 16
-        axis.text = element_text(size = 16),
-        ## set axis title to 18
-        axis.title = element_text(size = 18),
+        ## set axis text to 12
+        axis.text = element_text(size = 12),
+        ## set axis title to 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1164,10 +1560,10 @@ d6 <- ggplot(df_cor, aes(x = R))+
   theme_minimal()+
   ## set the plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
-        ## set axis text to 16
-        axis.text = element_text(size = 16),
-        ## set axis title to 18
-        axis.title = element_text(size = 18),
+        ## set axis text to 12
+        axis.text = element_text(size = 12),
+        ## set axis title to 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1182,6 +1578,10 @@ d6 <- ggplot(df_cor, aes(x = R))+
 grid.arrange(d5, d6)
 ```
 
+<br>
+
+<br>
+
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 ## generate model 2 for losses and runs with the log of losses and runs plus log of runs
 losses_runs2 <- lm(formula = L ~ R, data = df_cor_noo)
@@ -1189,17 +1589,29 @@ losses_runs2 <- lm(formula = L ~ R, data = df_cor_noo)
 knitr::kable(round(glance(losses_runs2), 2), caption = "Regression Results for Losses and Runs Scored Model 2")
 ```
 
+<br>
+
+<br>
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Scored Model 2"}
 ## generate diagnostic plot for losses runs model 2
 ## uses previous settings for diagnostic plots
 autoplot(losses_runs2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Scored Model 2"}
 ## generate regression plot for losses and runs model
@@ -1215,6 +1627,10 @@ ggplot(df_cor_noo, aes(x = R, y = L))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## remove minor grid lines and set major grid lines to light blue
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1225,12 +1641,32 @@ ggplot(df_cor_noo, aes(x = R, y = L))+
        x = "Runs Scored")
 ```
 
+<br>
+
+<br>
+
+#### Losses ~ Runs Allowed Model
+
+Moving from runs scored to runs allowed, the initial model produced an R^2^ value of 0.39 with a residual standard error of 9.68 (see Table 17). This beats the performance of the wins and runs scored model, which had an original R^2^ value of 0.35 and residual standard error of 10.03. Looking at Figure 32, the regression plot for this model shows that the relationship between losses and runs allowed is quite linear.
+
+Looking at Figure 33 for the diagnostic plots, similar patterns that appeared in the wins and runs scored model likewise appear here. As such, despite this model generally meeting the assumptions, the same log transformation of the independent (runs allowed) variable that was applied to the wins and runs scored model was applied here. This was mainly done to provide a comparison of the log transformed models, as well to see what improvements could be made to the single-predictor model.
+
+The log transformation of runs allowed returned a very minor improvement as the R^2^ value remained at 0.39 and the residual standard error stayed approximately the same at 9.65 (see Table 18). The diagnostic plots do show some improvement in terms of meeting the linear regression assumptions (see Figure 34); however, the log transformation only appears to shift the distribution of the values (see Figure 35). Given the minor improvement to the model and the shifting of the distribution, this transformation is not really necessary and using the non-transformed variables would be fine.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## generate losses and runs allowed model 1
 losses_ra <- lm(formula = L ~ RA, data = df_cor)
 ## generate model summary
 knitr::kable(round(glance(losses_ra), 2), caption = "Regression Results for Losses and Runs Allowed Model 1")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed Model 1"}
 ## generate regression plot for runs allowed and losses
@@ -1246,6 +1682,10 @@ ggplot(df_cor, aes(x = RA, y = L))+
   theme_minimal()+
   ## set plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## set major panel grids to light blue and remove minor panel grid
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1256,17 +1696,29 @@ ggplot(df_cor, aes(x = RA, y = L))+
        x = "Runs Allowed")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Model 1"}
 ## generate diagnostic plot for losses runs allowed model 1
 ## uses previous settings for diagnostic plots
 autoplot(losses_ra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
 ## generate losses runs allowed model 2
@@ -1276,17 +1728,29 @@ losses_ra2 <- lm(formula = L ~ log(RA), data = df_cor)
 knitr::kable(round(glance(losses_ra2), 2), caption = "Regression Results for Losses and Runs Allowed Model 2")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Model 2"}
 ## generate diagnostic plot for model 2
 ## uses previous settings for diagnostic model
 autoplot(losses_ra2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed Model 2"}
 ## generate regression plot for runs allowed and losses
@@ -1302,6 +1766,10 @@ ggplot(df_cor, aes(x = log(RA), y = L))+
   theme_minimal()+
   ## set plot text to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## set major panel grids to light blue and remove minor panel grid
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1312,12 +1780,30 @@ ggplot(df_cor, aes(x = log(RA), y = L))+
        x = "log(Runs Allowed)")
 ```
 
+<br>
+
+<br>
+
+#### Losses ~ Runs Allowed Minus Home Runs Allowed Model
+
+And lastly, losses was also run in a model with runs allowed minus home runs allowed in an attempt to model defense with the influence of pitching weakened. This is again a very basic stand-in for defense without pitching but hey, this is for fun.
+
+The model for this regression returned an R^2^ value of 0.44 with a residual standard error of 9.27 (see Table 19). Meaning, that with home runs removed, runs allowed accounted for ~44% of the variance in losses with an average error of 9.27. Looking at the regression plot in Figure 36, the relationship between losses and runs allowed minus home runs allowed is quite linear. Which makes sense given the relationship between losses and runs allowed. Moreover, the diagnostic plots for this model, shown in Figure 37, show very similar results as to those for the non-transformed losses and runs allowed model. As the log transformation of runs allowed in the losses and runs allowed model only returned minor improvements regarding the results, I did not find it pertinent to apply the same transformation to this model.
+
+<br>
+
+<br>
+
 ```{r echo=FALSE}
 ## generate model for losses and runs allowed minus home runs allowed
 losses_mhra <- lm(formula = L ~ RA_MHRA, data = df_cor)
 ## generate model summary
 knitr::kable(round(glance(losses_mhra), 2), caption = "Regression Results for Losses and Runs Allowed Minus Home Runs Allowed")
 ```
+
+<br>
+
+<br>
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed Minus Home Runs Allowed"}
 ## generate regression plot for losses and runs allowed minus home runs allowed
@@ -1333,6 +1819,10 @@ ggplot(df_cor, aes(x = RA_MHRA, y = L))+
   theme_minimal()+
   ## set plot font to Lato
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         ## set major panel grid to light blue and remove minor panel grid
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
@@ -1343,14 +1833,36 @@ ggplot(df_cor, aes(x = RA_MHRA, y = L))+
        x = "Runs Allowed Minus Home Runs Allowed")
 ```
 
+<br>
+
+<br>
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Minus Home Runs Allowed"}
 ## generate diagnostic plot for model 1
 ## uses previous settings for diagnostic plots
 autoplot(losses_mhra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
   theme_minimal()+
   theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 12
+        axis.text = element_text(size = 12),
+        ## set the zxis title to size 14
+        axis.title = element_text(size = 14),
         panel.grid.minor.x = element_blank(),
         panel.grid.major.x = element_line(colour = "#DBF0F9"),
         panel.grid.major.y = element_line(colour = "#DBF0F9"),
         panel.grid.minor.y = element_blank())
 ```
+
+<br>
+
+<br>
+
+## Discussion
+
+So what does all of this mean?
+
+I was originally inspired to perform this analysis as I was left with questions from the Baseball Prospectus article on defensive metrics. The purpose being to assess whether defense truly was nowhere near as important as hitting or pitching. Originally I was only going to do a simplistic correlation analysis, but I decided to grow that into a linear regression analysis, which in turn led me to diving deeper into subjects of variable transformation, outlier analysis, and visualization.
+
+My idea for analysing the contributions of offense and defense was to model offense as runs scored and defense as runs allowed, with the contributions of both to wins and losses. In an attempt to also account for the influence of pitching in runs allowed, the number of home runs allowed was subtracted from runs allowed. However, this presents as a simple means of accommodating for pitching and does not truly address the involvement of pitching in runs allowed.
+
+To address the contributions of offense and defense, linear regression models were created of both variables with the associated outcome variable (i.e., runs scored and wins and runs allowed and losses) as well as with the opposing outcome variable (i.e., runs scored and losses and runs allowed and wins). The purpose being to see which of runs scored and runs allowed accounts for more variance in the associated outcome variable, as well as which of runs scored and runs allowed better accounts for variance in the opposing variable. While the simplicity of this analysis makes it difficult to draw any strong conclusions from this analysis, the results do suggest that defense is not nowhere near as important as at least offense. In the case of associated outcome variable, runs allowed performs better in terms of accounting for variance in its associated variabled (losses) than does runs scored (wins). Moreover, in both the non-transformed and transformed models, runs allowed performed better in accounting for variance in the opposing outcome variable than did runs scored. As such, as the simplicity of these models do not provide for any strong conclusions, indeed results of the opposing outcome models suggest that the single-predictor is not enough to account for the variance seen, the results do suggest a pattern that points to the importance of defense in baseball. This can be understood as follows: to win a game, a team must score runs; to not lose a game, a team must prevent runs. A team could set a club record for the number of runs scored in a game, yet still lose that game if the other team scores more. Likewise, a team could prevent the other team from ever scoring, yet still not win if they do not score any runs themselves. To say that defense is nowhere near as important as offense is a misnomer, and a statement that I believe comes from the biases born from the difficulty in assessing defensive contributions and the robustness of current offensive metrics.
