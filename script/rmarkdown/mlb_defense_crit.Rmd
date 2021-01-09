@@ -1,0 +1,1356 @@
+---
+title: "Baseball - A Defensive Critique"
+author: "Paul A. Hodgetts"
+date: "2020-12-29T20:35:12-05:00"
+output: 
+  html_document:
+    fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, echo=FALSE, message=FALSE}
+## uncomment lines for packages that need to be installed
+#install.packages("Lahman")       ## install the Lahman package for baseball data
+#install.packages("tidyverse")    ## install tidyverse package for data manipulation
+#install.packages("ggcorrplot")   ## install ggcorrplot for data viz
+#install.packages("ggplot2")      ## install ggplot2 for data viz
+#install.packages("ggfortify")    ## install ggfortify package for diagnostic charts
+#install.packages("gridExtra")    ## instal gridExtra package for grid display
+#install.packages("showtext")     ## install showtext package for accessing Google fonts
+#install.packages("broom")        ## install broom package for tidy regression result tables
+#install.packages("kableExtra")   ## install kableExtra package for table formatting
+```
+
+```{r lirbaries, echo=FALSE, message=FALSE, warning=FALSE}
+library(Lahman)                  ## load Lahman library for MLB player data
+library(tidyverse)               ## load tidyverse library for tidy data functions
+library(ggcorrplot)              ## load ggcorrplot library for correlation heatmap
+library(ggplot2)                 ## load ggplot2 library for creating visualization
+library(ggfortify)               ## load ggfortify library for diagnostic charts
+library(gridExtra)               ## load gridExtra library for chart grid display
+library(showtext)                ## load showtext library for accessing Google fonts
+library(broom)                   ## load broom library for functions to tidy regression result tables
+library(kableExtra)              ## load kableExtra library for table formatting
+```
+
+```{r font, echo=FALSE, message=FALSE}
+## add in fonts from Google fonts using showtext package
+## the Lato font is the most similar to Gill Sans
+## font_add_google function calls the font from Google fonts
+font_add_google(name = "Lato", family = "lato-sans-serif")
+## loads font
+showtext_auto()
+```
+
+```{r data, echo=FALSE, message=FALSE}
+## load Teams data from Lahman package
+teams <- Teams
+
+## select necessary columns
+## yearID, W, L, R, RA, and HRA
+df <- teams %>% 
+  select(yearID, W, L, R, RA, HRA)
+
+## check column heads
+#head(df)
+```
+
+```{r missing values, echo=FALSE, message=FALSE}
+## function to identify missing values by column and row
+## takes two parameters .data, a dataset, and .var, a character string
+check_NA <- function(.data, .var){
+  ## returns an array index for missing values
+  assign(.var, which(is.na(.data), arr.ind = TRUE), envir = .GlobalEnv)
+  ## creates dataframe with given character string
+  assign(.var, as.data.frame(get(.var)), envir = .GlobalEnv)
+  ## removes duplicate values
+  assign(.var, unique(get(.var)), envir = .GlobalEnv)
+}
+
+## creates dataset of missing value row and column numbers
+check_NA(df, "df_NA")
+```
+
+```{r filter data 1961, echo=FALSE}
+## create new dataset with year filtered for 1961 and greater
+df61 <- df %>% 
+  filter(yearID >= 1961)
+
+## check column heads
+#head(df61)
+```
+
+```{r correlation, echo=FALSE}
+## select only those columns for correlation analysis
+## W, L, R, RA, and HRA
+## create new column of runs allowed minus home runs allowed
+## remove home runs allowed from dataset
+df_cor <- df61 %>% 
+  select(W, L, R, RA, HRA) %>% 
+  mutate(RA_MHRA = RA - HRA) %>% 
+  select(-HRA)
+
+## calculate correlations
+cor_rra <- round(cor(df_cor), 2)
+
+## check correlations
+## creates correlation matrix table using kable function from knitr package
+knitr::kable(head(cor_rra), caption = "Correlation Matrix for Wins, Losses, Runs, Runs Allowed, and Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r heatmap, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Heatmap Correlation Matrix for Wins, Losses, Runs, Runs Allowed, and Runs Allowed Minus Home Runs"}
+## generate correlation heatmap plot using ggcorrplot
+## use cor_rra as data source
+## set colours to blue, white, and yellow
+ggcorrplot(cor_rra, colors = c("#1b93df", "#ffffff", "#f6aa1c"))+
+  ## set plot theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"))+
+  ## set Y and X axes title to Variable
+  labs(y = "Variable",
+       x = "Variable")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate summary table using head() and kable() function from the knitr package
+knitr::kable(summary(df_cor), caption = "Data Summary for Wins, Losses, Runs Scored, Runs Allowed, and Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate and assign histogram plot using wins on x axis
+p1 <- ggplot(df_cor, aes(x = W))+
+  ## set fill colour to yellow and alpha to .5
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set the zxis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Wins",
+       y = "Count")
+
+## generate and assign histogram plot using losses on x axis
+p2 <- ggplot(df_cor, aes(x = L))+
+  ## set fill colour to yellow and alpha to .5
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set the zxis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Losses",
+       y = "Count")
+
+## generate and assign histogram plot using runs on x axis
+p3 <- ggplot(df_cor, aes(x = R))+
+  ## set fill colour to yellow and alpha to .5
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set the zxis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs",
+       y = "Count")
+
+## generate and assign histogram plot using runs allowed on x axis
+p4 <- ggplot(df_cor, aes(x = RA))+
+  ## set fill colour to yellow and alpha to .5
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set the zxis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs Allowed",
+       y = "Count")
+
+## generate and assign histogram plot using runs allowed minus home runs allowed on x axis
+p5 <- ggplot(df_cor, aes(x = RA_MHRA))+
+  ## set fill colour to yellow and alpha to .5
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set the axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set the zxis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runa Allowed Minus Home Runs Allowed",
+       y = "Count")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Distribution of Variables Wins, Losses, Runs Scored, Runs Allowed, and Runs Allowed Minus Home Runs Allowed"}
+## generate grid of histogram plots
+grid.arrange(p1, p2, p3, p4, p5)
+```
+
+```{r create wins losses bins, echo=FALSE, message=FALSE, warning=FALSE}
+## create new columns for wins and losses bins for use with box plots
+## and use with violin plots
+df_cor <- df_cor %>%
+  ## set bin width to 10 and boundary to 0
+  mutate(bins_W = cut_width(W, width = 10, boundary = 0),
+         bins_L = cut_width(L, width = 10, boundary = 0))
+```
+
+```{r wins boxplots, echo=FALSE, message=FALSE, warning=FALSE}
+## generate boxplot using df_cor as data, runs as Y and binned wins as X
+b1 <- ggplot(df_cor, aes(y = R, x = bins_W))+
+  ## set fill to yellow and alpha to 0.75
+  geom_boxplot(fill = "#f6aa1c", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## change label text size to 16
+        axis.text = element_text(size = 16),
+        ## change axis title size to 18
+        axis.title = element_text(size = 18),
+        ## remove minor X grid
+        panel.grid.minor.x = element_blank(),
+        ## remove major X grid
+        panel.grid.major.x = element_blank(),
+        ## set major Y grid to light blue
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        ## remove minor Y grid
+        panel.grid.minor.y = element_blank())+
+  ## set X label to Wins and Y label to Runs Scored
+  labs(x = "Wins",
+       y = "Runs Scored")
+
+## generate boxplot using df_cor as data, runs allowed as Y and binned wins as X
+b2 <- ggplot(df_cor, aes(y = RA, x = bins_W))+
+  ## set fill to yellow and alpha to 0.75
+  geom_boxplot(fill = "#f6aa1c", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## change label text size to 16
+        axis.text = element_text(size = 16),
+        ## change axis title size to 18
+        axis.title = element_text(size = 18),
+        ## remove minor X grid
+        panel.grid.minor.x = element_blank(),
+        ## remove major X grid
+        panel.grid.major.x = element_blank(),
+        ## set major Y grid to light blue
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        ## remove minor Y grid
+        panel.grid.minor.y = element_blank())+
+  ## set X label to Wins and Y label to Runs Scored
+  labs(x = "Wins",
+       y = "Runs Allowed")
+
+## generate boxplot using df_cor as data, runs allowed minus home runs allowed as Y and binned wins as X
+b3 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_W))+
+  ## set fill to yellow and alpha to 0.75
+  geom_boxplot(fill = "#f6aa1c", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## change label text size to 16
+        axis.text = element_text(size = 16),
+        ## change axis title size to 18
+        axis.title = element_text(size = 18),
+        ## remove minor X grid
+        panel.grid.minor.x = element_blank(),
+        ## remove major X grid
+        panel.grid.major.x = element_blank(),
+        ## set major Y grid to light blue
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        ## remove minor Y grid
+        panel.grid.minor.y = element_blank())+
+  ## set X label to Wins and Y label to Runs Scored
+  labs(x = "Wins",
+       y = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Boxplots for Wins, Runs Scored, Runs Allowed, and Runs Allowed Minus Home Runs Allowed", fig.width=9, fig.height=7}
+## arrange the boxplot plots in a grid using the grid.arrange() functino from the gridExtra package
+grid.arrange(b1, b2, b3)
+```
+
+```{r wins violin plots, echo=FALSE, message=FALSE, warning=FALSE}
+## generate violin plot using df_cor as data, runs scored, and wins
+v1 <- ggplot(df_cor, aes(y = R, x = bins_W))+
+  ## set fill to colour and alpha to 0.75
+  geom_violin(fill = "#f6aa1c", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set axis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor X grid
+        panel.grid.minor.x = element_blank(),
+        ## remove major X grid and set major Y grid to light blue
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        ## remove minor Y grid
+        panel.grid.minor.y = element_blank())+
+  ## set X label to Wins and Y label to Runs Scored
+  labs(x = "Wins",
+       y = "Runs Scored")
+
+## generate violin plot using df_cor as data, runs scored, and wins
+v2 <- ggplot(df_cor, aes(y = RA, x = bins_W))+
+  ## set fill to colour and alpha to 0.75
+  geom_violin(fill = "#f6aa1c", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set axis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor X grid
+        panel.grid.minor.x = element_blank(),
+        ## remove major X grid and set major Y grid to light blue
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        ## remove minor Y grid
+        panel.grid.minor.y = element_blank())+
+  ## set X label to Wins and Y label to Runs Scored
+  labs(x = "Wins",
+       y = "Runs Allowed")
+
+## generate violin plot using df_cor as data, runs scored, and wins
+v3 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_W))+
+  ## set fill to colour and alpha to 0.75
+  geom_violin(fill = "#f6aa1c", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set axis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor X grid
+        panel.grid.minor.x = element_blank(),
+        ## remove major X grid and set major Y grid to light blue
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        ## remove minor Y grid
+        panel.grid.minor.y = element_blank())+
+  ## set X label to Wins and Y label to Runs Scored
+  labs(x = "Wins",
+       y = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Violin Plots for Wins, Runs Scored, Runs Allowed, and Runs Allowed Minus Home Runs Allowed", fig.width=9, fig.height=7}
+## arrange plots in a grid using grid.arrange() function from gridExtra package
+grid.arrange(v1, v2, v3)
+```
+
+```{r losses boxplots, echo=FALSE, message=FALSE, warning=FALSE}
+## generate boxplot using df_cor for data, runs for Y and binned losses for X
+b4 <- ggplot(df_cor, aes(y = R, x = bins_L))+
+  ## set fill to blue and alpha to 0.75
+  geom_boxplot(fill = "#1b93df", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set text size to 16
+        axis.text = element_text(size = 16),
+        ## set title size to 18
+        axis.title = element_text(size = 18),
+        ## remove minor and major x grid lines and set major y grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set X and Y labels
+  labs(x = "Losses",
+       y = "Runs Scored")
+
+## generate boxplot using df_cor for data, runs allowed for Y and binned losses for X
+b5 <- ggplot(df_cor, aes(y = RA, x = bins_L))+
+  ## set fill to blue and alpha to 0.75
+  geom_boxplot(fill = "#1b93df", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set text size to 16
+        axis.text = element_text(size = 16),
+        ## set title size to 18
+        axis.title = element_text(size = 18),
+        ## remove minor and major x grid lines and set major y grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set X and Y labels
+  labs(x = "Losses",
+       y = "Runs Allowed")
+
+## generate boxplot using df_cor for data, runs allowed minus home runs allowed for Y and binned losses for X
+b6 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_L))+
+  ## set fill to blue and alpha to 0.75
+  geom_boxplot(fill = "#1b93df", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set text size to 16
+        axis.text = element_text(size = 16),
+        ## set title size to 18
+        axis.title = element_text(size = 18),
+        ## remove minor and major x grid lines and set major y grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set X and Y labels
+  labs(x = "Losses",
+       y = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Boxplots for Losses and Runs Scored, Runs Allowed, and Runs Allowed Minus Home Runs Allowed", fig.width=9, fig.height=7}
+## arrange plots in a grid using grid.arrange()
+grid.arrange(b4, b5, b6)
+```
+
+```{r losses violin plots, echo=FALSE, message=FALSE, warning=FALSE}
+## generate violin plot using df_cor for data, runs for y, and binned losses for x
+v4 <- ggplot(df_cor, aes(y = R, x = bins_L))+
+  ## set fill to blue and alpha to 0.75
+  geom_violin(fill = "#1b93df", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set axis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor and major x grid lines and set major y grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set X and Y labels
+  labs(x = "Losses",
+       y = "Runs Scored")
+
+## generate violin plot using df_cor for data, runs allowed for y, and binned losses for x
+v5 <- ggplot(df_cor, aes(y = RA, x = bins_L))+
+  ## set fill to blue and alpha to 0.75
+  geom_violin(fill = "#1b93df", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set axis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor and major x grid lines and set major y grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set X and Y labels
+  labs(x = "Losses",
+       y = "Runs Allowed")
+
+## generate violin plot using df_cor for data, runs allowed minus home runs allowed for y, and binned losses for x
+v6 <- ggplot(df_cor, aes(y = RA_MHRA, x = bins_L))+
+  ## set fill to blue and alpha to 0.75
+  geom_violin(fill = "#1b93df", alpha = 0.75)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to size 16
+        axis.text = element_text(size = 16),
+        ## set axis title to size 18
+        axis.title = element_text(size = 18),
+        ## remove minor and major x grid lines and set major y grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set X and Y labels
+  labs(x = "Losses",
+       y = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.cap="Violin Plots for Losses and Runs Scored, Runs Allowed, and Runs Allowed Minus Home Runs Allowed", fig.width=9, fig.height=7}
+## arrange plots in a grid
+grid.arrange(v4, v5, v6)
+```
+
+```{r echo=FALSE}
+## generate linear regression model for wins and runs
+## set formula for wins as dependent and runs scored as independent variables, and data as df_cor
+wins_runs <- lm(formula = W ~ R, data = df_cor)
+## generate summary of model
+knitr::kable(round(glance(wins_runs), 2), caption = "Regression Results for Wins and Runs Scored, Model 1")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Scored Model 1"}
+## generate regression plot for runs and wins
+## set data to df_cor, X as runs scored and Y as wins
+ggplot(df_cor, aes(x = R, y = W))+
+  ## generate a point plot with colour set to yellow and alpha to .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth line plot for regression line
+  ## set method to lm to generate regression line
+  ## set se to TRUE to generate standard error range
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df", formula = y ~ x)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Wins",
+       x = "Runs Scored")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Scored Model 1"}
+## generate diagnostic plots for linear regression model wins_runs
+## set colour to yellow, diagnostic line to blue, and alpha to .25
+autoplot(wins_runs, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Cook's Distance for Wins Runs Model 1"}
+## augment model
+wins_runs_aug <- augment(wins_runs)
+
+## use fortifed model as data set x to .cooksd sequence and y to .cooksd
+ggplot(wins_runs_aug, aes(seq_along(.cooksd), .cooksd))+
+  ## generate column chart
+  geom_col(fill = "#f6aa1c")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set axis labels
+  labs(x = "Observation Number",
+       y = "Cook's Distance")
+```
+
+```{r echo=FALSE, warning=FALSE}
+## generate linear regression model for wins and runs
+## set formula to wins as dependent and use runs plus the log of runs as dependent
+wins_runs2 <- lm(formula = W ~ log(R), data = df_cor)
+## generate summary for model
+knitr::kable(round(glance(wins_runs2), 2), caption = "Regression Results for Wins and Runs Scored Model 2")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Scored Model 2"}
+## generate diagnsotic plot for model 2
+## uses same settings as previous diagnostic plot
+autoplot(wins_runs2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Scored Model 2"}
+## generate regression plot for runs and wins
+## set data to df_cor, X as runs scored and Y as wins
+ggplot(df_cor, aes(x = log(R), y = W))+
+  ## generate a point plot with colour set to yellow and alpha to .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth line plot for regression line
+  ## set method to lm to generate regression line
+  ## set se to TRUE to generate standard error range
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df", formula = y ~ log(x))+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Wins",
+       x = "log(Runs Scored)")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate model for wins and runs allowed
+## set wins as dependent and runs allowed as independent
+wins_ra <- lm(formula = W ~ RA, data = df_cor)
+## generate model summary
+knitr::kable(round(glance(wins_ra), 2), caption = "Regression Results for Wins and Runs Allowed Model 1")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Model 1"}
+## generate regression plot for wins and runs allowed
+ggplot(df_cor, aes(x = RA, y = W))+
+  ## generate point plot with colour yellow and alpha .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## use lm method for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df", formula = y ~ x)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Wins",
+       x = "Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 1"}
+## generate diagnostic plot for wins and runs allowed model 1
+## uses same diagnostic plot settings as previously used
+autoplot(wins_ra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Cook's Distance for Wins and Runs Allowed Model 1"}
+## augment model
+wins_ra_aug <- augment(wins_ra)
+
+## use fortifed model as data set x to .cooksd sequence and y to .cooksd
+ggplot(wins_ra_aug, aes(seq_along(.cooksd), .cooksd))+
+  ## generate column chart
+  geom_col(fill = "#f6aa1c")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set axis labels
+  labs(x = "Observation Number",
+       y = "Cook's Distance")
+```
+
+```{r outliers, echo=FALSE, message=FALSE, warning=FALSE}
+## set function with one variable .var
+outlier_norm <- function(.var){
+  ## set quantiles of .25 and .75
+  qntile <- quantile(.var, probs = c(.25, .75))
+  ## set caps of .05 and .95
+  caps <- quantile(.var, probs = c(.05, .95))
+  ## compute interquartile range of .var and multiply by 1.5
+  H <- 1.5 * IQR(.var, na.rm = T)
+  ## cap .var when less than first qntile - H with first cap
+  .var[.var < (qntile[1] - H)] <- caps[1]
+  ## cap .var when greater than second qntile + H with second cap
+  .var[.var > (qntile[2] + H)] <- caps[2]
+  ## return .var
+  return(.var)
+}
+
+## remove bin variables from df_cor
+df_cor <- df_cor %>% 
+  select(-bins_W, -bins_L)
+
+## set new dataframe for outlier cap
+df_cor_noo <- df_cor
+
+## cap outliers for runs allowed
+df_cor_noo$RA <- outlier_norm(df_cor_noo$RA)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(summary(df_cor_noo), caption = "Data Summary for Capped Runs Allowed Values")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(summary(df_cor), caption = "Data Summary for Unadjusted Runs Allowed Values")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate histogram for runs allowed
+d1 <- ggplot(df_cor_noo, aes(x = RA))+
+  ## set fill to yellow and alpha to .9
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set the plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to 16
+        axis.text = element_text(size = 16),
+        ## set axis title to 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs Allowed, Capped",
+       y = "Count")
+
+## generate histogram for runs allowed
+d2 <- ggplot(df_cor, aes(x = RA))+
+  ## set fill to yellow and alpha to .9
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set the plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to 16
+        axis.text = element_text(size = 16),
+        ## set axis title to 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs Allowed",
+       y = "Count")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Distribution Comparison of Capped Runs Allowed Values and Unadjusted Runs Allowed Values"}
+grid.arrange(d1, d2)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## generate wins and runs allowed model 2 with runs allowed plus log runs allowed
+wins_ra2 <- lm(formula = W ~ RA, data = df_cor_noo)
+## generate summary of model 2
+knitr::kable(round(glance(wins_ra2), 2), caption = "Regression Results for Wins and Runs Allowed Model 2")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 2"}
+## generate diagnostic plot using previous settings
+autoplot(wins_ra2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Model 2"}
+## augment model
+wins_ra2_aug <- augment(wins_ra2)
+
+## use fortifed model as data set x to .cooksd sequence and y to .cooksd
+ggplot(wins_ra2_aug, aes(seq_along(.cooksd), .cooksd))+
+  ## generate column chart
+  geom_col(fill = "#f6aa1c")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set axis labels
+  labs(x = "Observation Number",
+       y = "Cook's Distance")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Model 2"}
+## generate regression plot for wins and runs allowed
+ggplot(df_cor_noo, aes(x = RA, y = W))+
+  ## generate point plot with colour yellow and alpha .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## use lm method for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df", formula = y ~ x)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Wins",
+       x = "Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate wins and runs allowed minus home runs allowed model
+wins_mhra <- lm(formula = W ~ RA_MHRA, data = df_cor)
+## generate model summary
+knitr::kable(round(glance(wins_mhra), 2), caption = "Regression Results for Wins and Runs Allowed Minus Home Runs Allowed Model 1")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Minus Home Runs Allowed Model 1"}
+## generate regression plot for wins and runs allowed minus home runs allowed
+ggplot(df_cor, aes(x = RA_MHRA, y = W))+
+  ## generate point plot with colour yellow and alpha as .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## set method to lm for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines
+        ## set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set y and x labels
+  labs(y = "Wins",
+       x = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Minus Home Runs Allowed Model 1"}
+## generate model diagnostic plots using previous settings
+autoplot(wins_mhra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Minus Home Runs Allowed Model 1"}
+## augment model
+wins_mhra_aug <- augment(wins_mhra)
+
+## use fortifed model as data set x to .cooksd sequence and y to .cooksd
+ggplot(wins_mhra_aug, aes(seq_along(.cooksd), .cooksd))+
+  ## generate column chart
+  geom_col(fill = "#f6aa1c")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set axis labels
+  labs(x = "Observation Number",
+       y = "Cook's Distance")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+df_cor_noo$RA_MHRA <- outlier_norm(df_cor_noo$RA_MHRA)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(summary(df_cor_noo), caption = "Data Summary for Capped Runs Allowed Minus Home Runs Allowed Values")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(summary(df_cor), caption = "Data Summary for Unadjusted Runs Allowed Minus Home Runs Allowed Values")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate histogram for runs allowed
+d3 <- ggplot(df_cor_noo, aes(x = RA_MHRA))+
+  ## set fill to yellow and alpha to .9
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set the plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to 16
+        axis.text = element_text(size = 16),
+        ## set axis title to 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs Allowed Minus Home Runs Allowed, Capped",
+       y = "Count")
+
+## generate histogram for runs allowed
+d4 <- ggplot(df_cor, aes(x = RA_MHRA))+
+  ## set fill to yellow and alpha to .9
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set the plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to 16
+        axis.text = element_text(size = 16),
+        ## set axis title to 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs Allowed Minus Home Runs Allowed",
+       y = "Count")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Distribution Comparison of Capped and Unadjusted Runs Allowed Minus Home Runs Allowed"}
+grid.arrange(d3, d4)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## generate wins and runs allowed minus home runs allowed model 2
+## using runs allowed minus home runs allowed plus log runs allowed minus home runs allowed
+wins_mhra2 <- lm(formula = W ~ RA_MHRA, data = df_cor_noo)
+## generate model summary
+knitr::kable(round(glance(wins_mhra2), 2), caption = "Regression Results for Wins and Runs Allowed Minus Home Runs Allowed Model 2")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Minus Home Runs Allowed Model 2"}
+## generate diagnostic plot for wins runs allowed minus home runs allowed model 2
+## uses previous settings for diagnostic plots
+autoplot(wins_mhra2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Model 2"}
+## augment model
+wins_mhra2_aug <- augment(wins_mhra2)
+
+## use fortifed model as data set x to .cooksd sequence and y to .cooksd
+ggplot(wins_mhra2_aug, aes(seq_along(.cooksd), .cooksd))+
+  ## generate column chart
+  geom_col(fill = "#f6aa1c")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set axis labels
+  labs(x = "Observation Number",
+       y = "Cook's Distance")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Wins and Runs Allowed Minus Home Runs Allowed Model 2"}
+## generate regression plot for wins and runs allowed minus home runs allowed
+ggplot(df_cor_noo, aes(x = RA_MHRA, y = W))+
+  ## generate point plot with colour yellow and alpha as .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## set method to lm for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines
+        ## set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set y and x labels
+  labs(y = "Wins",
+       x = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate losses and runs model 1
+losses_runs <- lm(formula = L ~ R, data = df_cor)
+## generate summary for model 1
+knitr::kable(round(glance(losses_runs), 2), caption = "Regression Results for Losses and Runs Scored Model 1")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Scored Model 1"}
+## generate regression plot for losses and runs model
+ggplot(df_cor, aes(x = R, y = L))+
+  ## generate point plot with colour yellow and alpha .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## use method lm for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, colour = "#1b93df")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Losses",
+       x = "Runs Scored")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Wins and Runs Allowed Model 4"}
+## generate diagnostic plot for losses and runs model 1
+## uses previous settings for diagnostic plots
+autoplot(losses_runs, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, fig.cap="Cook's Distance for Wins Runs Allowed Model 1"}
+## augment model
+losses_runs_aug <- augment(losses_runs)
+
+## use fortifed model as data set x to .cooksd sequence and y to .cooksd
+ggplot(losses_runs_aug, aes(seq_along(.cooksd), .cooksd))+
+  ## generate column chart
+  geom_col(fill = "#f6aa1c")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set axis labels
+  labs(x = "Observation Number",
+       y = "Cook's Distance")
+```
+
+```{r runs outliers, echo=FALSE, message=FALSE, warning=FALSE}
+df_cor_noo$R <- outlier_norm(df_cor_noo$R)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(summary(df_cor_noo), caption = "Data Summary for Capped Runs Scored Values")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+knitr::kable(summary(df_cor), caption = "Data Summary for Unadjusted Runs Scored Values")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate histogram for runs
+d5 <- ggplot(df_cor_noo, aes(x = R))+
+  ## set fill to yellow and alpha to .9
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set the plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to 16
+        axis.text = element_text(size = 16),
+        ## set axis title to 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs Scored, Capped",
+       y = "Count")
+
+## generate histogram for runs
+d6 <- ggplot(df_cor, aes(x = R))+
+  ## set fill to yellow and alpha to .9
+  geom_histogram(fill = "#f6aa1c", alpha = 0.9)+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set the plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set axis text to 16
+        axis.text = element_text(size = 16),
+        ## set axis title to 18
+        axis.title = element_text(size = 18),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(x = "Runs Scored",
+       y = "Count")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap = "Distribtion Comparison of Capped and Unadjusted Runs Scored Values"}
+grid.arrange(d5, d6)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+## generate model 2 for losses and runs with the log of losses and runs plus log of runs
+losses_runs2 <- lm(formula = L ~ R, data = df_cor_noo)
+## generate model summary
+knitr::kable(round(glance(losses_runs2), 2), caption = "Regression Results for Losses and Runs Scored Model 2")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Scored Model 2"}
+## generate diagnostic plot for losses runs model 2
+## uses previous settings for diagnostic plots
+autoplot(losses_runs2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Scored Model 2"}
+## generate regression plot for losses and runs model
+ggplot(df_cor_noo, aes(x = R, y = L))+
+  ## generate point plot with colour yellow and alpha .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## use method lm for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, colour = "#1b93df")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## remove minor grid lines and set major grid lines to light blue
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Losses",
+       x = "Runs Scored")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## generate losses and runs allowed model 1
+losses_ra <- lm(formula = L ~ RA, data = df_cor)
+## generate model summary
+knitr::kable(round(glance(losses_ra), 2), caption = "Regression Results for Losses and Runs Allowed Model 1")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed Model 1"}
+## generate regression plot for runs allowed and losses
+ggplot(df_cor, aes(x = RA, y = L))+
+  ## generate point plot, set colour to yellow and alpha to .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## set method to lm to for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set major panel grids to light blue and remove minor panel grid
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Losses",
+       x = "Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Model 1"}
+## generate diagnostic plot for losses runs allowed model 1
+## uses previous settings for diagnostic plots
+autoplot(losses_ra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+## generate losses runs allowed model 2
+## uses log of losses and runs allowed plus log runs allowed
+losses_ra2 <- lm(formula = L ~ log(RA), data = df_cor)
+## generate model summary
+knitr::kable(round(glance(losses_ra2), 2), caption = "Regression Results for Losses and Runs Allowed Model 2")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Model 2"}
+## generate diagnostic plot for model 2
+## uses previous settings for diagnostic model
+autoplot(losses_ra2, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed Model 2"}
+## generate regression plot for runs allowed and losses
+ggplot(df_cor, aes(x = log(RA), y = L))+
+  ## generate point plot, set colour to yellow and alpha to .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## set method to lm to for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df", formula = y ~ log(x))+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot text to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set major panel grids to light blue and remove minor panel grid
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Losses",
+       x = "log(Runs Allowed)")
+```
+
+```{r echo=FALSE}
+## generate model for losses and runs allowed minus home runs allowed
+losses_mhra <- lm(formula = L ~ RA_MHRA, data = df_cor)
+## generate model summary
+knitr::kable(round(glance(losses_mhra), 2), caption = "Regression Results for Losses and Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Regression Plot for Losses and Runs Allowed Minus Home Runs Allowed"}
+## generate regression plot for losses and runs allowed minus home runs allowed
+ggplot(df_cor, aes(x = RA_MHRA, y = L))+
+  ## generate point plot with colour set to yellow and alpha to .5
+  geom_point(colour = "#f6aa1c", alpha = 0.5)+
+  ## generate smooth plot for regression line
+  ## set method to lm for regression line
+  ## set se to TRUE for standard error
+  ## set colour to blue
+  geom_smooth(method = lm, se = TRUE, color = "#1b93df")+
+  ## set theme to minimal
+  theme_minimal()+
+  ## set plot font to Lato
+  theme(text = element_text(family = "lato-sans-serif"),
+        ## set major panel grid to light blue and remove minor panel grid
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())+
+  ## set x and y labels
+  labs(y = "Losses",
+       x = "Runs Allowed Minus Home Runs Allowed")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Diagnostic Plots for Losses and Runs Allowed Minus Home Runs Allowed"}
+## generate diagnostic plot for model 1
+## uses previous settings for diagnostic plots
+autoplot(losses_mhra, colour = "#f6aa1c", smooth.colour = '#1b93df', alpha = 0.25)+
+  theme_minimal()+
+  theme(text = element_text(family = "lato-sans-serif"),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_line(colour = "#DBF0F9"),
+        panel.grid.major.y = element_line(colour = "#DBF0F9"),
+        panel.grid.minor.y = element_blank())
+```
